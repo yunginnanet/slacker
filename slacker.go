@@ -273,7 +273,6 @@ func (s *Slacker) Listen(ctx context.Context) error {
 						s.debugf("Ignored %+v\n", socketEvent)
 						continue
 					}
-					s.socketModeClient.Ack(*socketEvent.Request)
 					go s.handleMessageEvent(ctx, &callback, socketEvent.Request)
 
 				case socketmode.EventTypeInteractive:
@@ -469,6 +468,7 @@ func (s *Slacker) handleMessageEvent(ctx context.Context, event interface{}, req
 			// full channel, dropped event
 		}
 
+		botCtx.SocketModeClient().Ack(*req)
 		cmd.Execute(botCtx, request, response)
 		return
 	}
