@@ -5,14 +5,14 @@ import (
 	"log"
 	"os"
 
-	"github.com/shomali11/slacker"
+	"github.com/yunginnanet/slacker"
 )
 
 func main() {
 	bot := slacker.NewClient(os.Getenv("SLACK_BOT_TOKEN"), os.Getenv("SLACK_APP_TOKEN"))
 
 	authorizedUserIds := []string{"<User ID>"}
-	authorizedUserNames := []string{"shomali11"}
+	authorizedUserNames := []string{"yunginnanet"}
 
 	authorizedDefinitionByID := &slacker.CommandDefinition{
 		Description: "Very secret stuff",

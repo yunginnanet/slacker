@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/shomali11/slacker"
 	"github.com/slack-go/slack/socketmode"
+	"github.com/yunginnanet/slacker"
 )
 
 func main() {

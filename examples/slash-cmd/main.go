@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/shomali11/slacker"
+	"github.com/yunginnanet/slacker"
 )
 
 // Implements a simple slash command. Assumes you have the slash command

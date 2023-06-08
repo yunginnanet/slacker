@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/shomali11/slacker"
 	"github.com/slack-go/slack"
+	"github.com/yunginnanet/slacker"
 )
 
 func main() {

@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/shomali11/slacker"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/socketmode"
+	"github.com/yunginnanet/slacker"
 )
 
 // Implements a basic interactive command. This assumes that a slash command

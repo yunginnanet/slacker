@@ -8,9 +8,9 @@ import (
 
 	"github.com/shomali11/commander"
 	"github.com/shomali11/proper"
-	"github.com/shomali11/slacker"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/socketmode"
+	"github.com/yunginnanet/slacker"
 )
 
 func main() {
