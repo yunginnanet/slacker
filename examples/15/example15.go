@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/slack-go/slack"
+
 	"github.com/yunginnanet/slacker"
 )
 
@@ -39,7 +40,6 @@ func main() {
 		_, _, _ = botCtx.APIClient().PostMessage(callback.Channel.ID, slack.MsgOptionText(text, false),
 			slack.MsgOptionReplaceOriginal(callback.ResponseURL))
 
-		botCtx.SocketModeClient().Ack(*botCtx.Event().Request)
 	})
 
 	definition := &slacker.CommandDefinition{
