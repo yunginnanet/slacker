@@ -468,7 +468,9 @@ func (s *Slacker) handleMessageEvent(ctx context.Context, event interface{}, req
 			// full channel, dropped event
 		}
 
-		botCtx.SocketModeClient().Ack(*req)
+		if req != nil {
+			botCtx.SocketModeClient().Ack(*req)
+		}
 		cmd.Execute(botCtx, request, response)
 		return
 	}
