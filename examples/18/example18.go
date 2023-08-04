@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/slack-go/slack"
 	"github.com/yunginnanet/slacker"
 )
 
@@ -14,14 +13,6 @@ func main() {
 	bot.Command("ping", &slacker.CommandDefinition{
 		Handler: func(botCtx slacker.BotContext, request slacker.Request, response slacker.ResponseWriter) {
 			response.Reply("pong")
-		},
-	})
-
-	// Run every minute
-	bot.Job("0 * * * * *", &slacker.JobDefinition{
-		Description: "A cron job that runs every minute",
-		Handler: func(jobCtx slacker.JobContext) {
-			jobCtx.APIClient().PostMessage("#test", slack.MsgOptionText("Hello!", false))
 		},
 	})
 

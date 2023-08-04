@@ -1,13 +1,13 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"os"
 
-	"context"
-	"fmt"
-
 	"github.com/slack-go/slack/socketmode"
+
 	"github.com/yunginnanet/slacker"
 )
 
@@ -18,7 +18,7 @@ func main() {
 		log.Println("Connected!")
 	})
 
-	bot.Err(func(err string) {
+	bot.Err(func(err error) {
 		log.Println(err)
 	})
 
@@ -33,15 +33,6 @@ func main() {
 	bot.DefaultInnerEvent(func(ctx context.Context, evt interface{}, request *socketmode.Request) {
 		fmt.Printf("Handling inner event: %s", evt)
 	})
-
-	definition := &slacker.CommandDefinition{
-		Description: "help!",
-		Handler: func(botCtx slacker.BotContext, request slacker.Request, response slacker.ResponseWriter) {
-			response.Reply("Your own help function...")
-		},
-	}
-
-	bot.Help(definition)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

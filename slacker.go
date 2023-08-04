@@ -4,10 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
+	"sync"
 
-	"github.com/robfig/cron"
 	"github.com/shomali11/proper"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
@@ -19,15 +18,11 @@ const (
 	dash                = "-"
 	newLine             = "\n"
 	lock                = ":lock:"
-	invalidToken        = "invalid token"
-	helpCommand         = "help"
-	directChannelMarker = "D"
 	userMentionFormat   = "<@%s>"
 	codeMessageFormat   = "`%s`"
 	boldMessageFormat   = "*%s*"
 	italicMessageFormat = "_%s_"
 	quoteMessageFormat  = ">_*Example:* %s_"
-	slackBotUser        = "USLACKBOT"
 )
 
 var (
@@ -64,12 +59,13 @@ func NewClient(botToken, appToken string, options ...ClientOption) *Slacker {
 	slacker := &Slacker{
 		apiClient:          api,
 		socketModeClient:   socketModeClient,
-		cronClient:         cron.New(),
 		commandChannel:     make(chan *CommandEvent, 100),
 		errUnauthorized:    errUnauthorized,
 		botInteractionMode: defaults.BotMode,
 		sanitizeEventText:  defaultCleanEventInput,
 		debug:              defaults.Debug,
+		Mutex:              &sync.Mutex{},
+		logger:             defaultLogger,
 	}
 	return slacker
 }
@@ -78,18 +74,14 @@ func NewClient(botToken, appToken string, options ...ClientOption) *Slacker {
 type Slacker struct {
 	apiClient                        *slack.Client
 	socketModeClient                 *socketmode.Client
-	cronClient                       *cron.Cron
 	commands                         []Command
 	botContextConstructor            func(context.Context, *slack.Client, *socketmode.Client, *MessageEvent) BotContext
 	interactiveBotContextConstructor func(context.Context, *slack.Client, *socketmode.Client, *socketmode.Event) InteractiveBotContext
 	commandConstructor               func(string, *CommandDefinition) Command
 	requestConstructor               func(BotContext, *proper.Properties) Request
 	responseConstructor              func(BotContext) ResponseWriter
-	jobs                             []Job
-	jobContextConstructor            func(context.Context, *slack.Client, *socketmode.Client) JobContext
-	jobConstructor                   func(string, *JobDefinition) Job
 	initHandler                      func()
-	errorHandler                     func(err string)
+	errorHandler                     func(err error)
 	interactiveEventHandler          func(InteractiveBotContext, *slack.InteractionCallback)
 	helpDefinition                   *CommandDefinition
 	defaultMessageHandler            func(BotContext, Request, ResponseWriter)
@@ -101,6 +93,8 @@ type Slacker struct {
 	botInteractionMode               BotInteractionMode
 	sanitizeEventText                func(string) string
 	debug                            bool
+	logger                           SlackLogger
+	*sync.Mutex
 }
 
 // BotCommands returns Bot Commands
@@ -124,7 +118,7 @@ func (s *Slacker) Init(initHandler func()) {
 }
 
 // Err handle when errors are encountered
-func (s *Slacker) Err(errorHandler func(err string)) {
+func (s *Slacker) Err(errorHandler func(err error)) {
 	s.errorHandler = errorHandler
 }
 
@@ -146,11 +140,6 @@ func (s *Slacker) CustomBotContext(botContextConstructor func(context.Context, *
 // CustomInteractiveBotContext creates a new interactive bot context
 func (s *Slacker) CustomInteractiveBotContext(interactiveBotContextConstructor func(context.Context, *slack.Client, *socketmode.Client, *socketmode.Event) InteractiveBotContext) {
 	s.interactiveBotContextConstructor = interactiveBotContextConstructor
-}
-
-// CustomJobContext creates a new job context
-func (s *Slacker) CustomJobContext(jobContextConstructor func(context.Context, *slack.Client, *socketmode.Client) JobContext) {
-	s.jobContextConstructor = jobContextConstructor
 }
 
 // CustomCommand creates a new BotCommand
@@ -188,25 +177,14 @@ func (s *Slacker) UnAuthorizedError(errUnauthorized error) {
 	s.errUnauthorized = errUnauthorized
 }
 
-// Help handle the help message, it will use the default if not set
-func (s *Slacker) Help(definition *CommandDefinition) {
-	s.helpDefinition = definition
-}
-
 // Command define a new command and append it to the list of existing bot commands
 func (s *Slacker) Command(usage string, definition *CommandDefinition) {
+	s.Lock()
 	if s.commandConstructor == nil {
 		s.commandConstructor = NewCommand
 	}
 	s.commands = append(s.commands, s.commandConstructor(usage, definition))
-}
-
-// Job define a new cron job and append it to the list of existing jobs
-func (s *Slacker) Job(spec string, definition *JobDefinition) {
-	if s.jobConstructor == nil {
-		s.jobConstructor = NewJob
-	}
-	s.jobs = append(s.jobs, s.jobConstructor(spec, definition))
+	s.Unlock()
 }
 
 // CommandEvents returns read only command events channel
@@ -216,8 +194,6 @@ func (s *Slacker) CommandEvents() <-chan *CommandEvent {
 
 // Listen receives events from Slack and each is handled as needed
 func (s *Slacker) Listen(ctx context.Context) error {
-	s.prependHelpHandle()
-
 	go func() {
 		for {
 			select {
@@ -295,9 +271,6 @@ func (s *Slacker) Listen(ctx context.Context) error {
 		}
 	}()
 
-	s.startCronJobs(ctx)
-	defer s.cronClient.Stop()
-
 	// blocking call that handles listening for events and placing them in the
 	// Events channel as well as handling outgoing events.
 	return s.socketModeClient.RunContext(ctx)
@@ -307,7 +280,7 @@ func (s *Slacker) unsupportedEventReceived() {
 	s.socketModeClient.Debugf("unsupported Events API event received")
 }
 
-func (s *Slacker) defaultHelp(botCtx BotContext, request Request, response ResponseWriter) {
+func (s *Slacker) getHelpMessage() string {
 	helpMessage := empty
 	for _, command := range s.commands {
 		if command.Definition().HideHelp {
@@ -337,50 +310,7 @@ func (s *Slacker) defaultHelp(botCtx BotContext, request Request, response Respo
 		}
 	}
 
-	for _, command := range s.jobs {
-		if command.Definition().HideHelp {
-			continue
-		}
-
-		helpMessage += fmt.Sprintf(codeMessageFormat, command.Spec()) + space
-
-		if len(command.Definition().Description) > 0 {
-			helpMessage += dash + space + fmt.Sprintf(italicMessageFormat, command.Definition().Description)
-		}
-
-		helpMessage += newLine
-	}
-
-	response.Reply(helpMessage)
-}
-
-func (s *Slacker) prependHelpHandle() {
-	if s.helpDefinition == nil {
-		s.helpDefinition = &CommandDefinition{}
-	}
-
-	if s.helpDefinition.Handler == nil {
-		s.helpDefinition.Handler = s.defaultHelp
-	}
-
-	if len(s.helpDefinition.Description) == 0 {
-		s.helpDefinition.Description = helpCommand
-	}
-
-	s.commands = append([]Command{NewCommand(helpCommand, s.helpDefinition)}, s.commands...)
-}
-
-func (s *Slacker) startCronJobs(ctx context.Context) {
-	if s.jobContextConstructor == nil {
-		s.jobContextConstructor = NewJobContext
-	}
-
-	jobCtx := s.jobContextConstructor(ctx, s.apiClient, s.socketModeClient)
-	for _, jobCommand := range s.jobs {
-		s.cronClient.AddFunc(jobCommand.Spec(), jobCommand.Callback(jobCtx))
-	}
-
-	s.cronClient.Start()
+	return helpMessage
 }
 
 func (s *Slacker) handleInteractiveEvent(ctx context.Context, event *socketmode.Event, callback *slack.InteractionCallback) {
@@ -478,15 +408,5 @@ func (s *Slacker) handleMessageEvent(ctx context.Context, event interface{}, req
 	if s.defaultMessageHandler != nil {
 		request := s.requestConstructor(botCtx, nil)
 		s.defaultMessageHandler(botCtx, request, response)
-	}
-}
-
-func (s *Slacker) logf(format string, v ...interface{}) {
-	log.Printf(format, v...)
-}
-
-func (s *Slacker) debugf(format string, v ...interface{}) {
-	if s.debug {
-		log.Printf(format, v...)
 	}
 }

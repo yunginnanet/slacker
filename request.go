@@ -21,6 +21,7 @@ type Request interface {
 	IntegerParam(key string, defaultValue int) int
 	FloatParam(key string, defaultValue float64) float64
 	Properties() *proper.Properties
+	// OriginalEvent() *slack.Event
 }
 
 // request contains the Event received and parameters
