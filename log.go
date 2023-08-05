@@ -11,6 +11,7 @@ func (s *Slacker) CustomLogger(logger SlackLogger) {
 
 type SlackLogger interface {
 	Printf(format string, v ...interface{})
+	Output(calldepth int, s string) error
 }
 
 type Eventer interface {

@@ -12,6 +12,12 @@ func WithAPIURL(url string) ClientOption {
 	}
 }
 
+func WithLogger(logger SlackLogger) ClientOption {
+	return func(defaults *ClientDefaults) {
+		defaults.Logger = logger
+	}
+}
+
 // WithDebug sets debug toggle
 func WithDebug(debug bool) ClientOption {
 	return func(defaults *ClientDefaults) {
@@ -31,6 +37,7 @@ type ClientDefaults struct {
 	APIURL  string
 	Debug   bool
 	BotMode BotInteractionMode
+	Logger  SlackLogger
 }
 
 func newClientDefaults(options ...ClientOption) *ClientDefaults {

@@ -39,6 +39,7 @@ func NewClient(botToken, appToken string, options ...ClientOption) *Slacker {
 
 	slackOpts := []slack.Option{
 		slack.OptionDebug(defaults.Debug),
+		slack.OptionLog(defaults.Logger),
 		slack.OptionAppLevelToken(appToken),
 	}
 
