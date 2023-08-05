@@ -1,6 +1,11 @@
 package slacker
 
-import "github.com/slack-go/slack"
+import (
+	"log"
+	"os"
+
+	"github.com/slack-go/slack"
+)
 
 // ClientOption an option for client values
 type ClientOption func(*ClientDefaults)
@@ -45,6 +50,7 @@ func newClientDefaults(options ...ClientOption) *ClientDefaults {
 		APIURL:  "", // Empty string will not override default from slack package
 		Debug:   false,
 		BotMode: BotInteractionModeIgnoreAll,
+		Logger:  log.New(os.Stderr, "", log.LstdFlags),
 	}
 
 	for _, option := range options {

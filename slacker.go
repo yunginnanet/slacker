@@ -55,6 +55,7 @@ func NewClient(botToken, appToken string, options ...ClientOption) *Slacker {
 	socketModeClient := socketmode.New(
 		api,
 		socketmode.OptionDebug(defaults.Debug),
+		socketmode.OptionLog(defaults.Logger),
 	)
 
 	slacker := &Slacker{
@@ -207,7 +208,7 @@ func (s *Slacker) Listen(ctx context.Context) error {
 
 				switch socketEvent.Type {
 				case socketmode.EventTypeConnecting:
-					s.logf("Connecting to Slack with Socket Mode.")
+					s.logf("Connecting to Slack withe Socket Mode.")
 					if s.initHandler == nil {
 						continue
 					}
