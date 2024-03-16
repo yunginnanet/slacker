@@ -390,7 +390,7 @@ func (s *Slacker) handleMessageEvent(ctx context.Context, event interface{}, req
 
 		request := s.requestConstructor(botCtx, parameters)
 		if cmd.Definition().AuthorizationFunc != nil && !cmd.Definition().AuthorizationFunc(botCtx, request) {
-			response.ReportError(s.errUnauthorized)
+			// response.ReportError(s.errUnauthorized)
 			return
 		}
 
